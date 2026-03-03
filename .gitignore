@@ -1,0 +1,14 @@
+# Cairo / Dojo
+contracts/target/
+
+# Frontend
+client/node_modules/
+client/dist/
+*.tsbuildinfo
+
+# Environment
+.env
+.env.local
+
+# Context (Conductor)
+.context/
