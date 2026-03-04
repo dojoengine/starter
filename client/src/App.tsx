@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { KeysClause, ToriiQueryBuilder } from "@dojoengine/sdk";
 import {
   useDojoSDK,
@@ -7,6 +7,7 @@ import {
   useModel,
 } from "@dojoengine/sdk/react";
 import { useAccount, useConnect, useDisconnect } from "@starknet-react/core";
+import { ControllerConnector } from "@cartridge/connector";
 import { addAddressPadding, CairoCustomEnum } from "starknet";
 import { ModelsMapping } from "./dojo/models";
 
@@ -18,6 +19,13 @@ function App() {
   const { connect, connectors } = useConnect();
   const { disconnect } = useDisconnect();
   const [pending, setPending] = useState(false);
+  const [username, setUsername] = useState<string>();
+  const controller = connectors[0] as ControllerConnector;
+
+  useEffect(() => {
+    if (!address) return;
+    controller.username()?.then(setUsername);
+  }, [address, controller]);
 
   const entityId = useEntityId(address ?? "0");
 
@@ -52,11 +60,9 @@ function App() {
     return (
       <div>
         <h1>Dojo Starter</h1>
-        {connectors.map((c) => (
-          <button key={c.id} onClick={() => connect({ connector: c })}>
-            Connect {c.name}
-          </button>
-        ))}
+        <button onClick={() => connect({ connector: controller })}>
+          Log in
+        </button>
       </div>
     );
   }
@@ -65,9 +71,9 @@ function App() {
     <div>
       <h1>Dojo Starter</h1>
       <p>
-        Account: {address.slice(0, 6)}...{address.slice(-4)}
+        {username ?? `${address.slice(0, 6)}...${address.slice(-4)}`}
       </p>
-      <button onClick={() => disconnect()}>Disconnect</button>
+      <button onClick={() => disconnect()}>Log out</button>
       <hr />
       <p>
         Position: ({position?.x ?? 0}, {position?.y ?? 0})
