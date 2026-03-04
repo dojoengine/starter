@@ -28,7 +28,7 @@ run_quiet() { log "$@"; "$@" >/dev/null 2>&1; }
 # --- All contract tooling runs from contracts/ ---
 cd "$CONTRACTS_DIR"
 
-echo "=== Initializing backend environment ==="
+echo "=== Initializing contracts environment ==="
 run sozo build
 
 # --- Start Katana ---
@@ -53,7 +53,8 @@ cp "$MANIFEST" "$CLIENT_DIR/src/dojo/manifest_dev.json"
 WORLD_ADDRESS=$(python3 -c "import json; print(json.load(open('$MANIFEST'))['world']['address'])")
 
 # --- Start Torii ---
-run_bg torii --config torii.toml --world "$WORLD_ADDRESS"
+log "torii --config torii.toml --world ${WORLD_ADDRESS:0:10}..."
+torii --config torii.toml --world "$WORLD_ADDRESS" >/dev/null 2>&1 &
 TORII_PID=$!
 sleep 2
 if ! kill -0 "$TORII_PID" 2>/dev/null; then echo "Error: Torii failed to start."; exit 1; fi
@@ -68,9 +69,10 @@ EOF
 if [[ "${1:-}" != "--no-client" ]]; then
   echo ""
   echo "=== Initializing client environment ==="
-  run_quiet pnpm --dir "$CLIENT_DIR" install --frozen-lockfile
+  cd "$CLIENT_DIR"
+  run_quiet pnpm install --frozen-lockfile
   log "pnpm dev"
-  (cd "$CLIENT_DIR" && pnpm dev) >/dev/null 2>&1 &
+  pnpm dev >/dev/null 2>&1 &
   CLIENT_PID=$!
 fi
 
@@ -81,7 +83,7 @@ echo ""
 echo "Katana RPC:  http://localhost:5050"
 echo "Torii HTTP:  http://localhost:8080"
 if [ -n "$CLIENT_PID" ]; then
-  echo "Frontend:    http://localhost:5173"
+  echo "Frontend:    https://localhost:5173"
 fi
 echo ""
 echo "Press Ctrl+C to stop."
