@@ -4,6 +4,7 @@ dev = true
 [server]
 http_cors_origins = "*"
 
+# Enables Controller wallet support on the local devnet.
 [cartridge]
 controllers = true
 paymaster = true
