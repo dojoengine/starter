@@ -1,8 +1,12 @@
+// -- System Call Wrappers --
+// Each function maps to a #[dojo::contract] entry point in actions.cairo.
+
 import type { DojoProvider } from "@dojoengine/core";
 import type { Account, AccountInterface, CairoCustomEnum } from "starknet";
 
 export function setupWorld(provider: DojoProvider) {
   const spawn = async (account: Account | AccountInterface) => {
+    // provider.execute submits a tx to the Dojo world, routing to the contract by name.
     return await provider.execute(
       account,
       { contractName: "actions", entrypoint: "spawn", calldata: [] },
@@ -13,7 +17,7 @@ export function setupWorld(provider: DojoProvider) {
 
   const move = async (
     account: Account | AccountInterface,
-    direction: CairoCustomEnum
+    direction: CairoCustomEnum // Serializes a Cairo enum to calldata; variant name must match exactly
   ) => {
     return await provider.execute(
       account,
@@ -32,5 +36,6 @@ export function setupWorld(provider: DojoProvider) {
     );
   };
 
+  // Shape must match what DojoSdkProvider's clientFn expects; accessed via useDojoSDK().client.
   return { actions: { spawn, move, dig } };
 }

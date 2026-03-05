@@ -1,3 +1,7 @@
+// -- Client Models --
+// TypeScript mirror of the Cairo models. Must match the on-chain schema exactly —
+// field names, order, and types. The SDK uses these for typed entity queries.
+
 export interface Player {
   fieldOrder: string[];
   player: string;
@@ -10,6 +14,7 @@ export interface Player {
   best: number;
 }
 
+// Maps namespace → model → fields. The SDK uses this for typed queries and subscriptions.
 export interface SchemaType {
   [namespace: string]: {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -20,6 +25,7 @@ export interface SchemaType {
   };
 }
 
+// Default/zero values — the SDK initializes entities with these before Torii data arrives.
 export const schema: SchemaType = {
   starter: {
     Player: {
@@ -36,6 +42,7 @@ export const schema: SchemaType = {
   },
 };
 
+// Keys match Torii's entity format ("namespace-ModelName"). Used in KeysClause for subscriptions.
 export enum ModelsMapping {
   Player = "starter-Player",
   Moved = "starter-Moved",

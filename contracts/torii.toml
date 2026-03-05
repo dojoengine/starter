@@ -1,3 +1,4 @@
+# Torii indexer config — connects to Katana's RPC to index world events into a queryable store.
 rpc = "http://localhost:5050"
 
 [server]

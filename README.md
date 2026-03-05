@@ -40,8 +40,8 @@ starter/
 │   └── src/
 │       ├── App.tsx               # Game UI (grid, HUD, compass)
 │       ├── dojo/                 # SDK config, contracts, models
-│       ├── starknet-provider.tsx # Cartridge Controller + starknet-react
-│       └── tileUtils.ts         # Client-side tile content logic
+│       ├── starknet.tsx          # Cartridge Controller + starknet-react
+│       └── tiles.ts             # Client-side tile content logic
 └── scripts/
     ├── dev.sh          # One-command local dev environment
     └── check.sh        # CI validation (build, test, lint, typecheck)

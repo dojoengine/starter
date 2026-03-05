@@ -1,8 +1,12 @@
+// -- Dojo Config --
+// Loads the deploy manifest (contract addresses, world address) and constructs URLs.
+
 import { createDojoConfig } from "@dojoengine/core";
 import manifest from "./manifest_dev.json";
 
 export const dojoConfig = createDojoConfig({ manifest });
 
+// Points to the Starknet node (Katana locally). VITE_ env vars override for deployment.
 export const RPC_URL =
   import.meta.env.VITE_RPC_URL ?? dojoConfig.rpcUrl;
 

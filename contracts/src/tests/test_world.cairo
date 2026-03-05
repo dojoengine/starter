@@ -1,3 +1,6 @@
+// -- Dojo Tests --
+// Uses snforge with a test world. Key patterns: spawn_test_world for setup,
+// start_cheat_* for deterministic control, write_model_test for state injection.
 #[cfg(test)]
 mod tests {
     use dojo::model::{ModelStorage, ModelStorageTest};
@@ -15,6 +18,7 @@ mod tests {
 
     const PLAYER: felt252 = 'PLAYER';
 
+    // Declares which models, events, and contracts exist in the test world — must match the contract.
     fn namespace_def() -> NamespaceDef {
         NamespaceDef {
             namespace: "starter",
@@ -30,6 +34,7 @@ mod tests {
         }
     }
 
+    // Grants write permission on the "starter" namespace, mirroring dojo_dev.toml's [writers].
     fn contract_defs() -> Span<ContractDef> {
         [
             ContractDefTrait::new(@"starter", @"actions")
@@ -46,6 +51,7 @@ mod tests {
         @Player { player, x, y, health, gold, level: 1, dug: 0, best: 0 }
     }
 
+    // Standard Dojo test setup: create world, sync permissions, resolve contract via DNS, set caller.
     fn setup() -> (dojo::world::WorldStorage, IActionsDispatcher) {
         let ndef = namespace_def();
         let mut world = spawn_test_world([ndef].span());
@@ -78,7 +84,7 @@ mod tests {
         panic!("no matching tile found")
     }
 
-    // Find a timestamp that produces the desired dig outcome for a given player/tile/level.
+    // Brute-forces a timestamp that produces the desired dig outcome, letting us test both paths.
     fn find_timestamp_for(
         player: ContractAddress, x: u8, y: u8, outcome: Tile, level: u32,
     ) -> u64 {
@@ -129,6 +135,7 @@ mod tests {
     #[test]
     fn test_move_clamps_at_max() {
         let (mut world, actions) = setup_spawned();
+        // write_model_test bypasses permissions — test-only way to inject arbitrary state.
         world
             .write_model_test(
                 make_player(caller(), 9, 9, 100, 0),

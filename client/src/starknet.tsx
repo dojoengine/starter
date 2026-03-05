@@ -1,3 +1,7 @@
+// -- Cartridge Controller --
+// Configures the Controller wallet connector with session key policies,
+// so players don't have to manually sign every transaction.
+
 import type { PropsWithChildren } from "react";
 import { Chain } from "@starknet-react/chains";
 import {
@@ -11,6 +15,7 @@ import manifest from "./dojo/manifest_dev.json";
 
 const KATANA_CHAIN_ID = "0x4b4154414e41"; // "KATANA" hex-encoded
 
+// Custom chain definition for local Katana devnet. In production, use a chain from @starknet-react/chains.
 const katana: Chain = {
   id: BigInt(KATANA_CHAIN_ID),
   name: "Katana",
@@ -32,12 +37,15 @@ const katana: Chain = {
   },
 };
 
+// Look up the deployed contract address from the manifest — policies are per-contract.
 const actionsAddress =
   manifest.contracts.find((c) => c.tag === "starter-actions")?.address ?? "0x0";
 
 const connector = new ControllerConnector({
   chains: [{ rpcUrl: RPC_URL }],
   defaultChainId: KATANA_CHAIN_ID,
+  // Session key policies: whitelist which methods the Controller can auto-sign.
+  // Without these, the player would have to approve every transaction manually.
   policies: {
     contracts: {
       [actionsAddress]: {
@@ -67,6 +75,7 @@ const provider = jsonRpcProvider({
   rpc: () => ({ nodeUrl: RPC_URL }),
 });
 
+// StarknetConfig provides hooks like useAccount, useConnect. autoConnect resumes the previous session.
 export default function StarknetProvider({ children }: PropsWithChildren) {
   return (
     <StarknetConfig

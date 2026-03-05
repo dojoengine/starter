@@ -1,5 +1,9 @@
+// -- Dojo Systems --
+// Each fn is a transaction entry point callable from the client via provider.execute().
+
 use starter::models::{Direction, Player};
 
+// Transient enum — not stored in ECS, only used within dig logic and emitted in events.
 #[derive(Copy, Drop, Serde, PartialEq, Introspect)]
 pub enum Tile {
     Empty,
@@ -13,8 +17,8 @@ const WIN_GOLD: u32 = 100;
 const GOLD_REWARD: u32 = 10;
 const BOMB_DAMAGE: u8 = 10;
 
-// Layer 1: deterministic check for whether a tile has content.
-// hash(player, level, x, y) — 20% has content, 80% empty.
+// Layer 1 of two-layer randomness: deterministic — same inputs always give the same result.
+// The client mirrors this function exactly to render the grid without a network call.
 pub fn has_content(player: starknet::ContractAddress, level: u32, x: u8, y: u8) -> bool {
     let hash = core::poseidon::poseidon_hash_span(
         [player.into(), level.into(), x.into(), y.into()].span(),
@@ -24,8 +28,8 @@ pub fn has_content(player: starknet::ContractAddress, level: u32, x: u8, y: u8) 
     b < 51 // 51/256 ≈ 20%
 }
 
-// Layer 2: called at dig time. Uses block timestamp + position for per-tile entropy.
-// Gold chance decreases with level: L1=90%, L2=80%, ... L9=10%, L10+=0%.
+// Layer 2 of two-layer randomness: uses block timestamp, so the outcome is unknown
+// until the transaction executes. This prevents the client from predicting dig results.
 pub fn dig_outcome(
     player: starknet::ContractAddress, x: u8, y: u8, timestamp: u64, level: u32,
 ) -> Tile {
@@ -37,6 +41,7 @@ pub fn dig_outcome(
     if b < (10 - level).into() { Tile::Gold } else { Tile::Bomb }
 }
 
+// Bitmap ops — packs 100 tile states (10x10 grid) into one felt252. Bit index = y*10+x.
 fn is_dug(dug: felt252, x: u8, y: u8) -> bool {
     let idx: u8 = y * 10 + x;
     let d: u256 = dug.into();
@@ -69,6 +74,7 @@ fn next_position(x: u8, y: u8, direction: Direction) -> (u8, u8) {
     }
 }
 
+// Defines the public ABI. Dojo generates a dispatcher from this for tests and clients.
 #[starknet::interface]
 pub trait IActions<T> {
     fn spawn(ref self: T);
@@ -86,6 +92,7 @@ pub mod actions {
     use dojo::model::ModelStorage;
     use dojo::event::EventStorage;
 
+    // Events are indexed by Torii like models, but append-only. #[key] determines entity grouping.
     #[derive(Copy, Drop, Serde)]
     #[dojo::event]
     pub struct Moved {
@@ -126,12 +133,15 @@ pub mod actions {
         pub level: u32,
     }
 
+    // embed_v0 exposes these functions as external entry points on the deployed contract.
     #[abi(embed_v0)]
     impl ActionsImpl of IActions<ContractState> {
         fn spawn(ref self: ContractState) {
             let mut world = self.world_default();
             let player = get_caller_address();
+            // read_model looks up Player by its #[key]; returns zero-initialized if not found.
             let existing: Player = world.read_model(player);
+            // write_model upserts — creates or overwrites the model in world storage.
             world
                 .write_model(
                     @Player {
@@ -159,6 +169,7 @@ pub mod actions {
             p.health = if p.health > 1 { p.health - 1 } else { 0 };
 
             world.write_model(@p);
+            // Torii indexes emitted events and pushes them to subscribed clients in real time.
             world.emit_event(@Moved { player, direction, x: p.x, y: p.y, health: p.health });
 
             if p.health == 0 {
@@ -176,6 +187,7 @@ pub mod actions {
 
             p.dug = set_dug(p.dug, p.x, p.y);
 
+            // Block timestamp provides entropy only available at execution time (layer-2 randomness).
             let t = dig_outcome(player, p.x, p.y, get_block_timestamp(), p.level);
             if t == Tile::Gold {
                 p.gold += GOLD_REWARD;
@@ -197,6 +209,7 @@ pub mod actions {
                 return;
             }
 
+            // Level up: new level changes the content map (different hash inputs) and increases bomb probability.
             if p.gold >= p.level * WIN_GOLD {
                 p.level += 1;
                 p.health = START_HEALTH;
@@ -209,6 +222,7 @@ pub mod actions {
         }
     }
 
+    // world_default binds this contract to the "starter" namespace for all model reads/writes.
     #[generate_trait]
     impl InternalImpl of InternalTrait {
         fn world_default(self: @ContractState) -> dojo::world::WorldStorage {

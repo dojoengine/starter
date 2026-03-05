@@ -1,3 +1,7 @@
+// -- Game UI --
+// Subscribes to on-chain state via Torii, dispatches system calls, and
+// derives render state from the Player ECS model.
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { KeysClause, ToriiQueryBuilder } from "@dojoengine/sdk";
 import {
@@ -10,7 +14,7 @@ import { useAccount, useConnect, useDisconnect } from "@starknet-react/core";
 import { ControllerConnector } from "@cartridge/connector";
 import { addAddressPadding, CairoCustomEnum } from "starknet";
 import { ModelsMapping } from "./dojo/models";
-import { hasContent, isDug } from "./tileUtils";
+import { hasContent, isDug } from "./tiles";
 import "./App.css";
 
 type Direction = "Left" | "Right" | "Up" | "Down";
@@ -32,6 +36,7 @@ function TileGrid({
   for (let row = 9; row >= 0; row--) {
     for (let col = 0; col <= 9; col++) {
       const isPlayer = col === px && row === py;
+      // Layer-1 randomness on client: same Poseidon hash as the contract, no network round-trip.
       const content = hasContent(playerAddr, level, col, row);
       const wasDug = isDug(dug, col, row);
 
@@ -156,6 +161,8 @@ function App() {
 
   const entityId = useEntityId(address ?? "0");
 
+  // Build a Torii subscription: watch the Player model for this address.
+  // KeysClause filters by model type and key values. FixedLen means exact key match.
   const playerQuery = useMemo(
     () =>
       new ToriiQueryBuilder()
@@ -170,8 +177,10 @@ function App() {
     [address]
   );
 
+  // Starts a live subscription — Torii pushes updates whenever this player's on-chain state changes.
   useEntityQuery(playerQuery);
 
+  // Reads the latest cached model data for this entity. Re-renders when Torii pushes an update.
   const player = useModel(entityId as string, ModelsMapping.Player);
 
   const spawn = useCallback(async () => {
@@ -199,13 +208,15 @@ function App() {
     try {
       await client.actions.move(
         account,
-        new CairoCustomEnum({ [direction]: {} })
+        new CairoCustomEnum({ [direction]: {} }) // Serializes Direction enum; key is variant name
       );
     } finally {
       setPending(false);
     }
   };
 
+  // Dig result detection: snapshot state before digging, then compare after Torii syncs.
+  // Layer-2 randomness means the client can't predict the outcome in advance.
   const [preDig, setPreDig] = useState<{ x: number; y: number; gold: number } | null>(null);
 
   const dig = async () => {
@@ -219,7 +230,8 @@ function App() {
     }
   };
 
-  // Detect dig result when model updates after dig
+  // When Torii pushes the updated Player model, compare gold to the pre-dig snapshot.
+  // If gold increased, it was gold; otherwise, a bomb.
   useEffect(() => {
     if (!preDig || !player) return;
     const dugNow = isDug(player.dug ?? "0x0", preDig.x, preDig.y);
@@ -249,7 +261,7 @@ function App() {
             className="btn-login"
             onClick={() => {
               setAutoSpawn(true);
-              connect({ connector: controller });
+              connect({ connector: controller }); // Opens Controller modal for wallet connection
             }}
           >
             Start Digging
