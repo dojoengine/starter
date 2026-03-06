@@ -1,78 +1,13 @@
 // -- Dojo Systems --
 // Each fn is a transaction entry point callable from the client via provider.execute().
 
-use starter::models::{Direction, Player};
-
-// Transient enum — not stored in ECS, only used within dig logic and emitted in events.
-#[derive(Copy, Drop, Serde, PartialEq, Introspect)]
-pub enum Tile {
-    Empty,
-    Gold,
-    Bomb,
-}
+use starter::models::{Direction, Player, Tile};
 
 const GRID_MAX: u8 = 9;
 const START_HEALTH: u8 = 100;
 const WIN_GOLD: u32 = 100;
 const GOLD_REWARD: u32 = 10;
 const BOMB_DAMAGE: u8 = 10;
-
-// Layer 1 of two-layer randomness: deterministic — same inputs always give the same result.
-// The client mirrors this function exactly to render the grid without a network call.
-pub fn has_content(player: starknet::ContractAddress, level: u32, x: u8, y: u8) -> bool {
-    let hash = core::poseidon::poseidon_hash_span(
-        [player.into(), level.into(), x.into(), y.into()].span(),
-    );
-    let bucket: u256 = hash.into() & 0xff;
-    let b: u8 = bucket.try_into().unwrap();
-    b < 51 // 51/256 ≈ 20%
-}
-
-// Layer 2 of two-layer randomness: uses block timestamp, so the outcome is unknown
-// until the transaction executes. This prevents the client from predicting dig results.
-pub fn dig_outcome(
-    player: starknet::ContractAddress, x: u8, y: u8, timestamp: u64, level: u32,
-) -> Tile {
-    let hash = core::poseidon::poseidon_hash_span(
-        [player.into(), x.into(), y.into(), timestamp.into()].span(),
-    );
-    if level >= 10 { return Tile::Bomb; }
-    let b: u256 = hash.into() % 10;
-    if b < (10 - level).into() { Tile::Gold } else { Tile::Bomb }
-}
-
-// Bitmap ops — packs 100 tile states (10x10 grid) into one felt252. Bit index = y*10+x.
-fn is_dug(dug: felt252, x: u8, y: u8) -> bool {
-    let idx: u8 = y * 10 + x;
-    let d: u256 = dug.into();
-    (d / pow2(idx)) % 2 == 1
-}
-
-fn set_dug(dug: felt252, x: u8, y: u8) -> felt252 {
-    let idx: u8 = y * 10 + x;
-    let d: u256 = dug.into();
-    let mask: u256 = pow2(idx);
-    (d | mask).try_into().unwrap()
-}
-
-fn pow2(n: u8) -> u256 {
-    let mut result: u256 = 1;
-    let mut i: u8 = 0;
-    while i < n {
-        result = result * 2;
-        i += 1;
-    };
-    result
-}
-
-fn next_position(x: u8, y: u8, direction: Direction) -> (u8, u8) {
-    match direction {
-        Direction::Left => (if x > 0 { x - 1 } else { 0 }, y),
-        Direction::Right => (if x < GRID_MAX { x + 1 } else { GRID_MAX }, y),
-        Direction::Up => (x, if y < GRID_MAX { y + 1 } else { GRID_MAX }),
-        Direction::Down => (x, if y > 0 { y - 1 } else { 0 }),
-    }
-}
 
 // Defines the public ABI. Dojo generates a dispatcher from this for tests and clients.
 #[starknet::interface]
@@ -228,5 +163,62 @@ pub mod actions {
         fn world_default(self: @ContractState) -> dojo::world::WorldStorage {
             self.world(@"starter")
         }
+    }
+}
+
+// Layer 1 of two-layer randomness: deterministic — same inputs always give the same result.
+// The client mirrors this function exactly to render the grid without a network call.
+pub fn has_content(player: starknet::ContractAddress, level: u32, x: u8, y: u8) -> bool {
+    let hash = core::poseidon::poseidon_hash_span(
+        [player.into(), level.into(), x.into(), y.into()].span(),
+    );
+    let bucket: u256 = hash.into() & 0xff;
+    let b: u8 = bucket.try_into().unwrap();
+    b < 51 // 51/256 ≈ 20%
+}
+
+// Layer 2 of two-layer randomness: uses block timestamp, so the outcome is unknown
+// until the transaction executes. This prevents the client from predicting dig results.
+pub fn dig_outcome(
+    player: starknet::ContractAddress, x: u8, y: u8, timestamp: u64, level: u32,
+) -> Tile {
+    let hash = core::poseidon::poseidon_hash_span(
+        [player.into(), x.into(), y.into(), timestamp.into()].span(),
+    );
+    if level >= 10 { return Tile::Bomb; }
+    let b: u256 = hash.into() % 10;
+    if b < (10 - level).into() { Tile::Gold } else { Tile::Bomb }
+}
+
+// Bitmap ops — packs 100 tile states (10x10 grid) into one felt252. Bit index = y*10+x.
+fn is_dug(dug: felt252, x: u8, y: u8) -> bool {
+    let idx: u8 = y * 10 + x;
+    let d: u256 = dug.into();
+    (d / pow2(idx)) % 2 == 1
+}
+
+fn set_dug(dug: felt252, x: u8, y: u8) -> felt252 {
+    let idx: u8 = y * 10 + x;
+    let d: u256 = dug.into();
+    let mask: u256 = pow2(idx);
+    (d | mask).try_into().unwrap()
+}
+
+fn pow2(n: u8) -> u256 {
+    let mut result: u256 = 1;
+    let mut i: u8 = 0;
+    while i < n {
+        result = result * 2;
+        i += 1;
+    };
+    result
+}
+
+fn next_position(x: u8, y: u8, direction: Direction) -> (u8, u8) {
+    match direction {
+        Direction::Left => (if x > 0 { x - 1 } else { 0 }, y),
+        Direction::Right => (if x < GRID_MAX { x + 1 } else { GRID_MAX }, y),
+        Direction::Up => (x, if y < GRID_MAX { y + 1 } else { GRID_MAX }),
+        Direction::Down => (x, if y > 0 { y - 1 } else { 0 }),
     }
 }

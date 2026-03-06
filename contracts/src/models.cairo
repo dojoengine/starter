@@ -27,3 +27,11 @@ pub enum Direction {
     Up,
     Down,
 }
+
+// Transient enum — not stored in ECS, only used within dig logic and emitted in events.
+#[derive(Copy, Drop, Serde, PartialEq, Introspect)]
+pub enum Tile {
+    Empty,
+    Gold,
+    Bomb,
+}

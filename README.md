@@ -12,11 +12,12 @@ Clone this repo, run one command, and have a local game running in minutes.
 - [pnpm](https://pnpm.io/) >= 9
 - [jq](https://jqlang.github.io/jq/) (used by `dev.sh` to parse manifest JSON)
 
-Pinned versions live in [`contracts/.tool-versions`](contracts/.tool-versions).
+Pinned dependency versions live in [`contracts/.tool-versions`](contracts/.tool-versions).
 
 ## Quickstart
 
 ```bash
+# Clone the starter repo
 git clone https://github.com/dojoengine/starter.git
 cd starter
 
